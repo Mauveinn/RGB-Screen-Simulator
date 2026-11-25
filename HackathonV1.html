@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RGB Screen Simulator: how a screen makes every colour from red, green and blue light</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap">
+<style>
+  :root { --bg: #f2f2f5; --panel: #ffffff; --ink: #15161c; --muted: #555a68; --line: #d2d5de; --soft: #e9eaf0; --accent: #15161c; --accent-ink: #ffffff; --try: #fff4c2; --try-ink: #4a3b00; }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --bg: #0e0f13; --panel: #181a21; --ink: #f1f2f6; --muted: #a8adbb; --line: #30343f; --soft: #23262f; --accent: #f1f2f6; --accent-ink: #0e0f13; --try: #3a3210; --try-ink: #ffe98a; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Manrope", "Segoe UI", Helvetica, Arial, sans-serif; font-size: 1.08rem; line-height: 1.6; }
+  main { max-width: 54rem; margin: 0 auto; padding: 2rem 1.25rem 5rem; }
+  h1 { font-size: clamp(2rem, 6vw, 3.2rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; margin: 0 0 0.6rem; }
+  h1 span:nth-child(1) { color: #e5261f; } h1 span:nth-child(2) { color: #17a34a; } h1 span:nth-child(3) { color: #2456e6; }
+  @media (prefers-color-scheme: dark) { h1 span:nth-child(1) { color: #ff5a52; } h1 span:nth-child(2) { color: #3ddc79; } h1 span:nth-child(3) { color: #6f95ff; } }
+  .lede { font-size: 1.2rem; margin: 0 0 1.2rem; max-width: 40rem; }
+  .hook { display: flex; gap: 1rem; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1rem 1.2rem; }
+  .hook .box { flex: none; width: 4.5rem; height: 4.5rem; border-radius: 10px; background: #ffff00; border: 1px solid var(--line); }
+  .hook p { margin: 0; }
+  .toc { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.2rem 0 0; padding: 0; list-style: none; }
+  .toc a { display: inline-block; text-decoration: none; color: var(--ink); background: var(--soft); border: 1px solid var(--line); border-radius: 999px; padding: 0.35rem 0.85rem; font-size: 0.92rem; font-weight: 600; }
+
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 1.5rem; margin-top: 1.75rem; scroll-margin-top: 1rem; }
+  .step > header { display: flex; gap: 0.9rem; align-items: center; margin-bottom: 0.8rem; }
+  .num { flex: none; width: 2.8rem; height: 2.8rem; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 800; font-size: 1.3rem; }
+  .step h2 { font-size: clamp(1.3rem, 3.6vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; margin: 0; }
+  .step p { margin: 0 0 0.9rem; max-width: 42rem; }
+  .try { background: var(--try); color: var(--try-ink); border-radius: 10px; padding: 0.7rem 1rem; font-weight: 600; margin: 1rem 0 0; }
+  .try b { font-weight: 800; }
+  .step p.count { font-size: 0.92rem; color: var(--muted); margin: 0.5rem 0 0; font-variant-numeric: tabular-nums; }
+  .now { font-weight: 800; font-size: 1.1rem; margin: 0.8rem 0 0; min-height: 3.4rem; }
+
+  .screen { background: #000; border-radius: 10px; border: 6px solid #1c1d22; overflow: hidden; line-height: 0; }
+  canvas { display: block; image-rendering: pixelated; }
+  .ctrl { margin-top: 1rem; }
+  .ctrl label { display: flex; justify-content: space-between; font-weight: 800; font-size: 1rem; }
+  .ctrl output { font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; height: 2rem; margin: 0.2rem 0 0; accent-color: var(--accent); }
+  #r { accent-color: #e5261f; } #g { accent-color: #17a34a; } #b { accent-color: #2456e6; }
+  .ends { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); }
+  .rowbtn { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.9rem; }
+  .btn { font: inherit; font-size: 0.95rem; font-weight: 800; padding: 0.6rem 1.1rem; background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: 10px; cursor: pointer; }
+  .btn.quiet { background: var(--soft); color: var(--ink); border-color: var(--line); font-weight: 600; }
+  .small { font-size: 0.88rem; color: var(--muted); }
+  :focus-visible { outline: 3px solid #2456e6; outline-offset: 2px; }
+
+  .mixer { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 1rem; align-items: center; background: #000; border-radius: 12px; padding: 1.2rem; color: #fff; }
+  .lights { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+  .light { height: 7.5rem; border-radius: 8px; border: 1px solid #333; }
+  .cap { text-align: center; font-size: 0.85rem; font-weight: 600; margin-top: 0.4rem; color: #cfd2da; }
+  .eq { font-size: 2rem; font-weight: 800; }
+  .result { height: 7.5rem; border-radius: 8px; border: 1px solid #333; }
+  @media (max-width: 560px) { .mixer { grid-template-columns: 1fr; } .eq { text-align: center; } }
+  .sliders { display: grid; gap: 0.2rem; margin-top: 1rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.9rem; align-items: center; }
+  .chip { font: inherit; font-size: 0.9rem; font-weight: 600; padding: 0.4rem 0.8rem 0.4rem 0.5rem; border-radius: 999px; background: var(--soft); color: var(--ink); border: 1px solid var(--line); cursor: pointer; display: inline-flex; align-items: center; gap: 0.45rem; }
+  .chip i { width: 1rem; height: 1rem; border-radius: 50%; border: 1px solid var(--line); }
+
+  .eyegrid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; margin-top: 0.5rem; }
+  @media (max-width: 700px) { .eyegrid { grid-template-columns: 1fr; } }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { font-family: "Manrope", "Segoe UI", Arial, sans-serif; font-size: 13px; fill: var(--muted); }
+  h3 { font-size: 1rem; font-weight: 800; margin: 0 0 0.6rem; }
+  .key { font-size: 0.88rem; color: var(--muted); margin: 0.3rem 0 0; }
+  .step p.key { margin: 0.3rem 0 0; }
+  .cone { display: grid; grid-template-columns: 6.6rem 1fr; gap: 0.7rem; align-items: center; font-size: 0.9rem; margin-bottom: 0.6rem; }
+  .cone.seen { margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px solid var(--line); }
+  .seenSw { height: 2.4rem; border-radius: 6px; border: 1px solid var(--line); }
+  .cbar { height: 0.8rem; background: var(--soft); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; display: block; }
+  .cbar i { display: block; height: 100%; background: var(--ink); }
+  .say { font-size: 1.08rem; font-weight: 800; margin: 1rem 0 0; padding: 0.8rem 1rem; background: var(--soft); border-radius: 10px; max-width: none; }
+
+  .learned ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+  .learned li { margin-bottom: 0.4rem; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1rem; margin: 0; }
+  dt { font-weight: 800; } dd { margin: 0; }
+  @media (max-width: 520px) { dl { grid-template-columns: 1fr; } dd { margin-bottom: 0.5rem; } }
+  .foot { font-size: 0.85rem; color: var(--muted); margin-top: 1.5rem; }
+  .from { display: flex; gap: 0.7rem; align-items: center; background: var(--soft); border-radius: 10px; padding: 0.6rem 0.9rem; font-size: 0.98rem; }
+  .fromSw { flex: none; width: 2.2rem; height: 2.2rem; border-radius: 6px; border: 1px solid var(--line); }
+  a { color: inherit; }
+  .cbar { border-radius: 2px !important; height: 1.1rem !important; }
+  .note { border: 2px dashed var(--line); border-radius: 10px; padding: 0.6rem 0.9rem; font-weight: 600; font-size: 0.95rem; margin: 0 0 1rem; }
+  .pages { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 1rem 0 1.5rem; }
+  .pages button { font: inherit; font-size: 0.98rem; text-align: left; padding: 0.7rem 1rem; border-radius: 12px; border: 2px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; line-height: 1.35; }
+  .pages button b { display: block; font-weight: 800; }
+  .pages button small { display: block; color: var(--muted); font-size: 0.82rem; }
+  .pages button[aria-current="page"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+  .pages button[aria-current="page"] small { color: inherit; opacity: 0.8; }
+  @media (max-width: 520px) { .pages { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1><span>R</span><span>G</span><span>B</span> Screen Simulator</h1>
+  <nav class="pages" aria-label="Pages">
+    <button type="button" data-page="1" id="tab1"><b>Page 1</b> How a screen makes colour <small>about 2 minutes</small></button>
+    <button type="button" data-page="2" id="tab2"><b>Page 2</b> Go deeper: why your eyes are fooled <small>optional</small></button>
+  </nav>
+
+  <div id="page1">
+  <p class="lede">How does a phone, computer or TV screen show millions of colours? Find out in three short steps. It takes about two minutes, and you do not need to know anything about computers.</p>
+  <div class="hook">
+    <span class="box" aria-hidden="true"></span>
+    <p>This box looks yellow. But your screen has no yellow light inside it. So where does the yellow come from?</p>
+  </div>
+  <ul class="toc" aria-label="Steps">
+    <li><a href="#s1">1. Tiny dots</a></li><li><a href="#s2">2. Three lights</a></li><li><a href="#s3">3. Your eyes mix them</a></li>
+  </ul>
+
+  <section class="step" id="s1">
+    <header><span class="num">1</span><h2>A screen is made of tiny dots</h2></header>
+    <p>Every picture on a screen is built from thousands of tiny dots called <b>pixels</b>. They are so small that you normally cannot see them. Here is a picture. Let’s look closer and closer.</p>
+    <div class="screen" id="wrapA"><canvas id="cvA" aria-label="A picture of a sun, a house and a hill that can be magnified until the red, green and blue lights are visible"></canvas></div>
+    <p class="count" id="countA"></p>
+    <p class="now" id="nowA" aria-live="polite"></p>
+    <div class="ctrl">
+      <label for="mag">Magnify <output id="oMag"></output></label>
+      <input type="range" id="mag" min="3" max="96" step="1" value="3">
+      <div class="ends"><span>normal view</span><span>very close</span></div>
+    </div>
+    <div class="rowbtn">
+      <button class="btn quiet" id="back" type="button">Back to normal</button>
+    </div>
+    <p class="try"><b>Try this:</b> drag the Magnify slider to zoom in on the yellow sun. What colours do you find there?</p>
+  </section>
+
+  <section class="step" id="s2">
+    <header><span class="num">2</span><h2>Each dot has only three lights: red, green and blue</h2></header>
+    <p>Did you see it? The sun had no yellow in it, only red and green stripes. Every pixel has just three small lights: one <b>red</b>, one <b>green</b> and one <b>blue</b>. They never change colour. They can only get brighter or dimmer.</p>
+    <p>This is one pixel, made very big. Move the sliders to change its three lights.</p>
+    <div class="mixer">
+      <div>
+        <div class="lights"><div class="light" id="lr"></div><div class="light" id="lg"></div><div class="light" id="lb"></div></div>
+        <div class="cap">The three lights in one pixel</div>
+      </div>
+      <div class="eq" aria-hidden="true">=</div>
+      <div>
+        <div class="result" id="res"></div>
+        <div class="cap">The colour you see from far away</div>
+      </div>
+    </div>
+    <div class="sliders">
+      <div class="ctrl"><label for="r">Red light <output id="oR"></output></label><input type="range" id="r" min="0" max="255" value="255"></div>
+      <div class="ctrl"><label for="g">Green light <output id="oG"></output></label><input type="range" id="g" min="0" max="255" value="255"></div>
+      <div class="ctrl"><label for="b">Blue light <output id="oB"></output></label><input type="range" id="b" min="0" max="255" value="0"></div>
+    </div>
+    <div class="chips" id="chips"><span class="small">Quick colours:</span></div>
+    <p class="try"><b>Try this:</b> red and green are on, and you see yellow. Now slide blue all the way up. All three lights together make white.</p>
+  </section>
+
+  <section class="step" id="s3">
+    <header><span class="num">3</span><h2>The lights never mix. Your eyes do the mixing.</h2></header>
+    <p>On the screen, the three lights always stay side by side. But when they are small enough, your eye cannot tell them apart, so it blends them into one colour. Making colours by adding lights together like this is called <b>additive colour mixing</b>.</p>
+    <p>Make the pixels smaller and watch what happens.</p>
+    <p class="from"><span class="fromSw" id="sw3"></span><span>This screen shows the colour you set with the <b>three sliders in step 2</b>. To change the colour, <a href="#s2">go back to step 2</a> or pick one here:</span></p>
+    <div class="chips" id="chips3" style="margin:0 0 1rem"></div>
+    <div class="screen" id="wrapB"><canvas id="cvB" aria-label="A screen filled with red, green and blue stripes that blend into one colour as the pixels get smaller"></canvas></div>
+    <p class="count" id="countB"></p>
+    <p class="now" id="nowB" aria-live="polite"></p>
+    <div class="ctrl">
+      <label for="size">Pixel size <output id="oSize"></output></label>
+      <input type="range" id="size" min="3" max="72" step="1" value="48">
+      <div class="ends"><span>tiny, like a real screen</span><span>huge</span></div>
+    </div>
+    <p class="try"><b>Try this:</b> slide the pixel size all the way to tiny. Then set it to the middle and walk a few steps back from your screen. The stripes melt into one colour.</p>
+  </section>
+
+  <section class="step learned">
+    <header><span class="num">✓</span><h2>What you learned</h2></header>
+    <ol>
+      <li>A screen is made of tiny dots called pixels.</li>
+      <li>Each pixel has only three lights: red, green and blue. They only change brightness.</li>
+      <li>The lights never mix on the screen. They are too small to see one by one, so your eyes blend them into one colour.</li>
+    </ol>
+    <h3>Words to know</h3>
+    <dl>
+      <dt>Pixel</dt><dd>One dot of the screen.</dd>
+      <dt>RGB</dt><dd>Red, green and blue: the three lights in every pixel.</dd>
+      <dt>Additive colour mixing</dt><dd>Making colours by adding lights together.</dd>
+      <dt>LCD and OLED</dt><dd>The two main kinds of screen. They make light in different ways, but both use red, green and blue lights.</dd>
+    </dl>
+  </section>
+  <section class="step more" id="more">
+    <header><span class="num">+</span><h2>Want to go deeper?</h2></header>
+    <p>You have finished the main part. <b>Page 2</b> of this website explains <i>why</i> your eyes are fooled: your eye has only three kinds of colour sensors, and the screen is built to match them. It takes about two more minutes.</p>
+    <button class="btn" type="button" data-page="2">Go to page 2: why your eyes are fooled →</button>
+  </section>
+  </div>
+
+  <div id="page2" hidden>
+  <p class="lede">On page 1 you saw that red and green light together look yellow. This page shows why.</p>
+
+  <section class="step">
+    <header><span class="num">1</span><h2>Your eye has only three colour sensors</h2></header>
+      <p>Your eye has three kinds of colour sensors (called cones): one for red light, one for green and one for blue. Your brain cannot see the light itself. It only knows how strongly each sensor reacts. If two lights make the sensors react the same way, they look like the same colour.</p>
+  </section>
+
+  <section class="step" id="pick">
+    <header><span class="num">2</span><h2>Choose a colour for the screen to show</h2></header>
+    <p>These three sliders control everything on this page. They are the red, green and blue lights of the screen.</p>
+    <div class="mixer">
+      <div>
+        <div class="lights"><div class="light" id="lr2"></div><div class="light" id="lg2"></div><div class="light" id="lb2"></div></div>
+        <div class="cap">The three lights in one pixel</div>
+      </div>
+      <div class="eq" aria-hidden="true">=</div>
+      <div>
+        <div class="result" id="res2"></div>
+        <div class="cap">The colour you see</div>
+      </div>
+    </div>
+    <div class="sliders">
+      <div class="ctrl"><label for="r2">Red light <output id="oR2"></output></label><input type="range" id="r2" min="0" max="255" value="255"></div>
+      <div class="ctrl"><label for="g2">Green light <output id="oG2"></output></label><input type="range" id="g2" min="0" max="255" value="255"></div>
+      <div class="ctrl"><label for="b2">Blue light <output id="oB2"></output></label><input type="range" id="b2" min="0" max="255" value="0"></div>
+    </div>
+    <div class="chips" id="chips2"><span class="small">Quick colours:</span></div>
+  </section>
+
+  <section class="step">
+    <header><span class="num">3</span><h2>See how your eye reacts to it</h2></header>
+      <div class="eyegrid">
+        <div>
+          <h3>The light the screen is sending</h3>
+          <div id="spec"></div>
+          <p class="key">Each hump is one of the screen’s lights that is switched on. The taller the hump, the brighter the light.</p>
+        </div>
+        <div>
+          <h3>How the three colour sensors in your eye react</h3>
+          <p class="key" style="margin:0 0 0.8rem">Each bar is one sensor inside your eye. A longer bar means that sensor reacts more strongly. Your brain reads the three bars together and turns them into one colour.</p>
+          <p class="note">These bars are not controls. They only show the result. To change the colour, use the three sliders above.</p>
+          <div id="cones"></div>
+        </div>
+      </div>
+      <p class="say">Your brain only gets three numbers: how strongly each sensor reacts. It cannot tell whether those numbers came from one pure light or from a mix of red, green and blue. So with just three lights, a screen can make your brain see almost any colour.</p>
+      <p class="say">For example, the yellow of a real lemon is its own kind of light. A screen has no such light. It sends only red and green light, which is something else, but your brain creates the very same yellow from that mix.</p>
+    <p class="try"><b>Try this:</b> choose Yellow, then White, then Magenta with the quick colours in step 2 of this page, and watch how the bars change.</p>
+  </section>
+
+  <p class="foot">The charts use simplified curves for the eye’s sensors and the screen’s lights, so they are approximate. Scientists call the three sensors long, medium and short cones; “red, green and blue sensor” is a simpler way to say it.</p>
+  <div class="rowbtn"><button class="btn" type="button" data-page="1">← Back to page 1</button></div>
+  </div>
+</main>
+
+<script>
+'use strict';
+// RGB SCREEN SIMULATOR. Sections: 1 helpers, 2 sample picture, 3 drawStripes (the core),
+// 4 step 1 (magnify a picture), 5 colour sliders + step 3, 6 page 2 (the eye), 7 pages + start
+
+// ---------- 1. helpers ----------
+const byId = id => document.getElementById(id);
+const commas = n => n.toLocaleString('en-US');
+const rgb = (r, g, b) => 'rgb(' + r + ',' + g + ',' + b + ')';
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const dpr = () => window.devicePixelRatio || 1;          // real screen dots per CSS pixel
+const on = (id, event, fn) => byId(id).addEventListener(event, fn);
+
+// ---------- 2. sample picture (sun, cloud, hill, house), drawn with code ----------
+const samplePicture = document.createElement('canvas');
+samplePicture.width = 480; samplePicture.height = 300;
+{
+  const c = samplePicture.getContext('2d');
+  const circle = (x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); };
+  const sky = c.createLinearGradient(0, 0, 0, 220);
+  sky.addColorStop(0, '#1e6fff'); sky.addColorStop(1, '#bfe6ff');
+  c.fillStyle = sky; c.fillRect(0, 0, 480, 300);
+  c.fillStyle = '#ffe600'; circle(380, 70, 38);                                        // sun
+  c.fillStyle = '#ffffff'; circle(110, 70, 26); circle(140, 60, 32); circle(172, 72, 24); // cloud
+  c.fillStyle = '#1fae3c'; c.beginPath(); c.moveTo(0, 300); c.lineTo(0, 220);          // hill
+  c.quadraticCurveTo(140, 150, 290, 225); c.quadraticCurveTo(390, 175, 480, 215); c.lineTo(480, 300); c.fill();
+  c.fillStyle = '#e8261d'; c.fillRect(200, 185, 80, 60);                               // house wall
+  c.fillStyle = '#7a1a8f'; c.beginPath(); c.moveTo(190, 187); c.lineTo(240, 145); c.lineTo(290, 187); c.fill(); // roof
+  c.fillStyle = '#ffd9a0'; c.fillRect(232, 212, 18, 33);                               // door
+  c.fillStyle = '#ff7ab8'; circle(60, 262, 7); circle(95, 275, 7); circle(400, 265, 7); circle(435, 280, 7);   // flowers
+}
+
+// ---------- 3. drawStripes: THE CORE. Every simulated pixel = a red, a green and a blue stripe ----------
+// size: dots per simulated pixel. startX/startY: view offset. picture: {data, columns} or null. colour: [r, g, b]
+function drawStripes(canvas, cssWidth, cssHeight, size, startX, startY, picture, colour) {
+  const width = canvas.width = Math.round(cssWidth * dpr()), height = canvas.height = Math.round(cssHeight * dpr());
+  canvas.style.width = cssWidth + 'px'; canvas.style.height = cssHeight + 'px';
+  // plan one pixel: which light is at each x position? 0 red, 1 green, 2 blue, -1 dark gap
+  const stripeEnd = [Math.round(size / 3), Math.round(2 * size / 3), size];
+  const gapAcross = stripeEnd[0] >= 4 ? Math.max(1, Math.round(stripeEnd[0] * 0.2)) : 0;
+  const gapDown = size >= 12 ? Math.max(1, Math.round(size * 0.08)) : 0;
+  const lightAt = [];
+  for (let x = 0; x < size; x++) {
+    const light = x < stripeEnd[0] ? 0 : x < stripeEnd[1] ? 1 : 2;
+    lightAt.push(x >= stripeEnd[light] - gapAcross ? -1 : light);
+  }
+  // colour every dot. data holds 4 numbers per dot: red, green, blue, opacity
+  const context = canvas.getContext('2d'), image = context.createImageData(width, height), data = image.data;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const place = (y * width + x) * 4, sx = x + startX, sy = y + startY, light = lightAt[sx % size];
+      data[place + 3] = 255;                                   // opaque; r, g, b start at 0 (black)
+      if (sy % size >= size - gapDown || light === -1) continue;   // dark gap
+      const pixel = Math.floor(sy / size) * (picture ? picture.columns : 0) + Math.floor(sx / size);
+      data[place + light] = picture ? picture.data[pixel * 4 + light] : colour[light];   // KEY IDEA: one colour per stripe
+    }
+  }
+  context.putImageData(image, 0, 0);
+  return context;
+}
+
+// ---------- 4. step 1: magnify a picture ----------
+const SMALLEST = 3;                       // 3 dots per pixel: one dot for each light
+const LOOK = { x: 0.79, y: 0.21 };       // the centre of the view (0 to 1): the sun
+let small = null;                        // the picture shrunk to one colour per simulated pixel
+
+function drawPictureScreen() {
+  const cssWidth = byId('wrapA').clientWidth;
+  if (!cssWidth) return;                  // page 1 is hidden
+  const cssHeight = Math.round(Math.min(cssWidth * 0.58, 440));
+  const width = Math.round(cssWidth * dpr()), height = Math.round(cssHeight * dpr());
+  const columns = Math.ceil(width / SMALLEST), rows = Math.ceil(height / SMALLEST), source = samplePicture;
+  if (!small || small.columns !== columns || small.rows !== rows) {
+    // shrink the picture to one colour per simulated pixel
+    const c = document.createElement('canvas'); c.width = columns; c.height = rows;
+    const cx = c.getContext('2d', { willReadFrequently: true });
+    const scale = Math.max(columns / source.width, rows / source.height), w = source.width * scale, h = source.height * scale;
+    cx.imageSmoothingQuality = 'high'; cx.drawImage(source, (columns - w) / 2, (rows - h) / 2, w, h);
+    small = { columns, rows, data: cx.getImageData(0, 0, columns, rows).data };
+  }
+  // magnifying keeps the same pixels and draws each one bigger
+  const size = Number(byId('mag').value), fullW = columns * size, fullH = rows * size;
+  const startX = clamp(Math.round(LOOK.x * fullW - width / 2), 0, fullW - width);
+  const startY = clamp(Math.round(LOOK.y * fullH - height / 2), 0, fullH - height);
+  const context = drawStripes(byId('cvA'), cssWidth, cssHeight, size, startX, startY, small, null);
+
+  if (size >= 24) {                       // white box labelled "one pixel" around the middle pixel
+    const x = Math.floor((startX + width / 2) / size) * size - startX, y = Math.floor((startY + height / 2) / size) * size - startY;
+    const line = Math.max(2, Math.round(2 * dpr())), font = Math.round(15 * dpr());
+    context.lineWidth = line * 3; context.strokeStyle = '#000'; context.strokeRect(x, y, size, size);
+    context.lineWidth = line; context.strokeStyle = '#fff'; context.strokeRect(x, y, size, size);
+    context.font = '800 ' + font + 'px Manrope, Arial, sans-serif'; context.textBaseline = 'bottom';
+    const textY = y > font * 2 ? y - line * 2 : y + size + font * 1.6;
+    context.fillStyle = '#000'; context.fillRect(x - line, textY - font * 1.3, context.measureText('one pixel').width + font * 0.8, font * 1.4);
+    context.fillStyle = '#fff'; context.fillText('one pixel', x - line + font * 0.4, textY);
+  }
+
+  const seen = Math.min(columns, Math.ceil(width / size)) * Math.min(rows, Math.ceil(height / size));
+  byId('countA').textContent = 'This picture is ' + commas(columns) + ' × ' + commas(rows) + ' = ' + commas(columns * rows) +
+    ' pixels (' + commas(columns * rows * 3) + ' lights). ' +
+    (size === SMALLEST ? 'You are seeing all of them.' : 'At this zoom you are seeing about ' + commas(seen) + ' of them.');
+  byId('oMag').textContent = Math.round(size / SMALLEST) + '×';
+  byId('nowA').textContent = size <= 4 ? 'Normal view. The dots are far too small to see.'
+    : size <= 10 ? 'A little closer. The picture starts to look grainy.'
+    : size < 24 ? 'Closer. The picture is breaking up into red, green and blue stripes.'
+    : 'Very close. Each pixel (the white box) is just three lights: red, green and blue. Nothing else.';
+}
+
+on('mag', 'input', drawPictureScreen);
+on('back', 'click', () => { byId('mag').value = SMALLEST; drawPictureScreen(); });
+
+// ---------- 5. colour sliders (page 1 ids: r g b, page 2 ids: r2 g2 b2) and step 3 ----------
+const QUICK = [['Yellow', 255, 255, 0], ['White', 255, 255, 255], ['Cyan', 0, 255, 255], ['Magenta', 255, 0, 255], ['Orange', 255, 140, 0], ['Pink', 255, 120, 180], ['Red only', 255, 0, 0]];
+const readSliders = page => ['r', 'g', 'b'].map(id => Number(byId(id + page).value));
+const percent = v => Math.round(v / 2.55) + '%';
+
+function showColour(r, g, b) {             // shows one colour everywhere on the website
+  for (const page of ['', '2']) {          // both pages have the same sliders, lights and result box
+    byId('r' + page).value = r; byId('g' + page).value = g; byId('b' + page).value = b;
+    byId('lr' + page).style.background = rgb(r, 0, 0); byId('lg' + page).style.background = rgb(0, g, 0); byId('lb' + page).style.background = rgb(0, 0, b);
+    byId('res' + page).style.background = rgb(r, g, b);
+    byId('oR' + page).textContent = percent(r); byId('oG' + page).textContent = percent(g); byId('oB' + page).textContent = percent(b);
+  }
+  byId('sw3').style.background = rgb(r, g, b);
+  drawColourScreen(); drawEyePage([r, g, b]);
+}
+
+function drawColourScreen() {              // step 3: a screen filled with one colour
+  const cssWidth = byId('wrapB').clientWidth;
+  if (!cssWidth) return;                   // page 1 is hidden
+  const cssHeight = Math.round(Math.min(cssWidth * 0.45, 340)), size = Number(byId('size').value);
+  drawStripes(byId('cvB'), cssWidth, cssHeight, size, 0, 0, null, readSliders(''));
+  const columns = Math.ceil(cssWidth * dpr() / size), rows = Math.ceil(cssHeight * dpr() / size);
+  byId('countB').textContent = 'This screen now has ' + commas(columns) + ' × ' + commas(rows) + ' = ' + commas(columns * rows) +
+    ' pixels. Each has 3 lights, so ' + commas(columns * rows * 3) + ' lights in total.';
+  byId('oSize').textContent = size === SMALLEST ? 'smallest' : size + ' dots';
+  byId('nowB').textContent = size >= 30 ? 'Huge pixels. You can clearly see three separate lights.'
+    : size >= 8 ? 'Smaller. The lights are still separate, but they are starting to blend.'
+    : 'Tiny pixels. The lights are still side by side, but your eye now sees just one colour.';
+}
+
+for (const id of ['r', 'g', 'b']) {
+  on(id, 'input', () => showColour(...readSliders('')));
+  on(id + '2', 'input', () => showColour(...readSliders('2')));
+}
+on('size', 'input', drawColourScreen);
+for (const box of ['chips', 'chips3', 'chips2']) {      // quick colour buttons in step 2, step 3 and page 2
+  for (const [name, r, g, b] of QUICK) {
+    const button = document.createElement('button'), dot = document.createElement('i');
+    button.type = 'button'; button.className = 'chip'; dot.style.background = rgb(r, g, b);
+    button.append(dot, name); button.addEventListener('click', () => showColour(r, g, b)); byId(box).append(button);
+  }
+}
+
+// ---------- 6. page 2: how the eye reacts ----------
+// Lights and eye sensors are modelled as bell curves over wavelength (400 nm violet to 700 nm red). Simplified.
+const LIGHTS = [{ peak: 612, width: 16, power: 2.2 }, { peak: 545, width: 22, power: 1 }, { peak: 455, width: 15, power: 1 }];   // red, green, blue
+const SENSORS = [{ name: 'Red sensor', peak: 570, width: 42 }, { name: 'Green sensor', peak: 540, width: 38 }, { name: 'Blue sensor', peak: 445, width: 25 }];
+const COLOURS = ['#e5261f', '#17a34a', '#2456e6'];
+const bell = (x, peak, width) => Math.exp(-0.5 * ((x - peak) / width) ** 2);
+const output = slider => Math.pow(slider / 255, 2.2);                    // slider value -> real light output
+const lightAt = (nm, colour) => LIGHTS.reduce((sum, l, i) => sum + output(colour[i]) * l.power * bell(nm, l.peak, l.width), 0);
+function reaction(sensor, colour) {        // add up (light at each wavelength) × (sensor's sensitivity there)
+  let sum = 0;
+  for (let nm = 380; nm <= 720; nm += 2) sum += lightAt(nm, colour) * bell(nm, sensor.peak, sensor.width);
+  return sum;
+}
+const WHITE = SENSORS.map(s => reaction(s, [255, 255, 255]));           // white = every sensor at 100%
+
+function drawEyePage(colour) {
+  // chart: one hump per light that is on, above a rainbow strip (an SVG picture written as text)
+  const X = nm => 10 + (nm - 400) / 300 * 540, Y = v => 160 - v * 150;
+  let svg = '<svg viewBox="0 0 560 200" role="img" aria-label="The light from the screen, drawn above a rainbow">' +
+    '<defs><linearGradient id="rb" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#6a00b8"/><stop offset="0.17" stop-color="#2430ff"/><stop offset="0.3" stop-color="#00c8ff"/><stop offset="0.4" stop-color="#00d060"/><stop offset="0.53" stop-color="#b4e000"/><stop offset="0.6" stop-color="#ffe000"/><stop offset="0.67" stop-color="#ff9000"/><stop offset="0.8" stop-color="#ff2000"/><stop offset="1" stop-color="#a00000"/></linearGradient></defs>' +
+    '<line x1="10" x2="550" y1="160" y2="160" stroke="var(--line)"/>';
+  LIGHTS.forEach((light, i) => {
+    const amount = output(colour[i]);
+    if (amount < 0.004) return;            // this light is off
+    let path = 'M10 160';
+    for (let nm = 400; nm <= 700; nm += 2) path += ' L' + X(nm).toFixed(1) + ' ' + Y(amount * bell(nm, light.peak, light.width)).toFixed(1);
+    svg += '<path d="' + path + ' L550 160 Z" fill="' + COLOURS[i] + '" fill-opacity="0.75"/>';
+  });
+  byId('spec').innerHTML = svg + '<rect x="10" y="164" width="540" height="12" rx="3" fill="url(#rb)"/>' +
+    '<text x="280" y="194" text-anchor="middle">the rainbow: every pure colour of light</text></svg>';
+
+  // bars: how strongly each sensor reacts, then the colour the brain builds from them
+  const box = byId('cones');
+  box.textContent = '';
+  const addRow = (label, labelColour, content, extra) => {
+    const row = document.createElement('div'), b = document.createElement('b');
+    row.className = 'cone ' + extra; b.textContent = label; b.style.color = labelColour;
+    row.append(b, content); box.append(row);
+  };
+  SENSORS.forEach((sensor, i) => {
+    const bar = document.createElement('span'), fill = document.createElement('i');
+    bar.className = 'cbar'; fill.style.width = Math.min(100, reaction(sensor, colour) / WHITE[i] * 100) + '%';
+    bar.append(fill); addRow(sensor.name, COLOURS[i], bar, '');
+  });
+  const swatch = document.createElement('span');
+  swatch.className = 'seenSw'; swatch.style.background = rgb(...colour);
+  addRow('Your brain sees', '', swatch, 'seen');
+}
+
+// ---------- 7. two pages in one file, and start ----------
+function showPage(n, scrollUp) {           // show one page, hide the other
+  byId('page1').hidden = n !== 1; byId('page2').hidden = n !== 2;
+  byId('tab1').setAttribute('aria-current', n === 1 ? 'page' : 'false'); byId('tab2').setAttribute('aria-current', n === 2 ? 'page' : 'false');
+  if (n === 1) { drawPictureScreen(); drawColourScreen(); }   // a hidden canvas cannot be drawn, so redraw
+  if (scrollUp) window.scrollTo(0, 0);
+}
+for (const button of document.querySelectorAll('[data-page]')) {
+  button.addEventListener('click', () => showPage(Number(button.dataset.page), true));
+}
+let waiting = false;
+window.addEventListener('resize', () => {  // redraw to fit the new window size
+  if (waiting) return;
+  waiting = true;
+  requestAnimationFrame(() => { waiting = false; drawPictureScreen(); drawColourScreen(); });
+});
+showPage(1, false);
+showColour(...readSliders(''));            // start with the colour on the sliders (yellow)
+</script>
+</body>
+</html>
