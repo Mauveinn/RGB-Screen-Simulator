@@ -2,7 +2,7 @@
 
 **One-line summary:** An interactive website that shows how a screen makes every colour from only red, green and blue light, and why your eyes are fooled.
 
-**Live website:** https://YOUR-USERNAME.github.io/rgb-screen-simulator/
+**Live website:** https://Mauveinn.github.io/rgb-screen-simulator/
 
 ## What it does
 
@@ -41,7 +41,7 @@ Plain HTML, CSS and JavaScript. No libraries and no build step. The font is load
 
 ## Team
 
-- Name 1
-- Name 2
-- Name 3
-- Name 4
+- studzwaung-bot
+- 2826588
+- rainkiiii
+- Mauveinn
